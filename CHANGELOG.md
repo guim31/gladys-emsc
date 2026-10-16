@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-16
+
 ### Added
 
 - A "Nearby earthquakes" device: magnitude, distance, depth, time and region of
@@ -25,4 +27,5 @@ the notes of the version's GitHub Release.
 - Dashboard widget listing the latest earthquakes of the zone.
 - Texts and documentation in English, French, German and Spanish.
 
-[Unreleased]: https://github.com/guim31/gladys-emsc/commits/main
+[Unreleased]: https://github.com/guim31/gladys-emsc/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-emsc/releases/tag/v1.0.0
