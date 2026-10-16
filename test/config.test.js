@@ -1,33 +1,54 @@
+// -----------------------------------------------------------------------------
+// Normalization of the configuration: coordinates typed by hand, the two
+// zones, and what happens to values the manifest does not offer.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { DEFAULT_CONFIG, normalizeConfig, parseCoordinate } from '../src/config.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
+test('the defaults: the house, 200 km and M2.5, no far zone, French', () => {
+  assert.deepEqual(normalizeConfig(DEFAULT_CONFIG), {
+    center: null,
+    invalidCenter: false,
+    near: { radiusKm: 200, minMagnitude: 2.5 },
+    far: null,
+    farIgnored: false,
+    language: 'fr',
+  });
+  assert.deepEqual(normalizeConfig(undefined), normalizeConfig(DEFAULT_CONFIG));
 });
 
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
+test('coordinates: decimal comma, both or none, within bounds', () => {
+  assert.equal(parseCoordinate('43,6045', 90), 43.6045);
+  assert.equal(parseCoordinate(' -1.5 ', 180), -1.5);
+  assert.equal(parseCoordinate('91', 90), null);
+  assert.equal(parseCoordinate('1e3', 180), null);
+  assert.equal(parseCoordinate('', 90), null);
+  assert.deepEqual(normalizeConfig({ latitude: '43,6', longitude: '1,44' }).center, {
+    latitude: 43.6,
+    longitude: 1.44,
+  });
+  const half = normalizeConfig({ latitude: '43.6', longitude: '' });
+  assert.equal(half.center, null);
+  assert.equal(half.invalidCenter, true);
 });
 
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
+test('the far zone counts only when wider and stronger than the near one', () => {
+  const far = normalizeConfig({ far_radius: '1000', far_min_magnitude: '5' });
+  assert.deepEqual(far.far, { radiusKm: 1000, minMagnitude: 5 });
+  assert.equal(far.farIgnored, false);
+  const narrow = normalizeConfig({ radius: '1000', far_radius: '500' });
+  assert.equal(narrow.far, null);
+  assert.equal(narrow.farIgnored, true);
+  const weak = normalizeConfig({ min_magnitude: '5', far_radius: '2000', far_min_magnitude: '4' });
+  assert.equal(weak.far, null);
+  assert.equal(weak.farIgnored, true);
 });
 
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('a value the manifest does not offer falls back on the default', () => {
+  const config = normalizeConfig({ radius: '7', min_magnitude: 'big', language: 'it' });
+  assert.deepEqual(config.near, { radiusKm: 200, minMagnitude: 2.5 });
+  assert.equal(config.language, 'fr');
+  assert.equal(normalizeConfig({ min_magnitude: 3 }).near.minMagnitude, 3);
 });

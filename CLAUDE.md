@@ -32,15 +32,20 @@ pushing.
 
 ```
 index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/app.js                        registers every SDK handler on a GladysIntegration (or the fake)
+src/monitor.js                    the zone: feed messages and catch-ups → states, scene triggers
+src/emsc.js                       EMSC clients: real-time WebSocket (reconnects), FDSN catch-up, parsing
+src/device.js                     the one device: external ids, feature names, buildDevice
+src/actions.js                    scene action `read_earthquakes`, configuration action `check_now`
+src/widgets.js                    dashboard widget `earthquakes` (card-list)
+src/messages.js                   texts of the container in en/fr/de/es, number and date formats
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/geo.js                        great-circle distance
+src/store.js                      /data/emsc.json: earthquakes of the zone, hash of the zone
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
+test/                             node --test, against the SDK's fake Gladys, a fake FDSN and a fake WebSocket
+test/fixtures/emsc/               real FDSN answer and feed messages recorded on 16/10/2026
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +75,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German and Spanish: action
+  messages, widget texts, feature names, manifest texts, and `docs/{en,fr,de,es}.md`,
+  kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +239,37 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## EMSC (cette intégration)
+
+- **Flux temps réel** : `wss://www.seismicportal.eu/standing_order/websocket`, un message JSON
+  `{ action: "create" | "update", data: <Feature GeoJSON> }` par séisme créé ou révisé **dans le monde
+  entier**, sans abonnement ni filtre côté serveur : le filtrage par zone est local. Mesuré le
+  16/10/2026 : de l'ordre d'un message toutes les 2 à 3 minutes. Des `update` arrivent pour des
+  séismes de la veille (révisions tardives). Le `WebSocket` global de Node (≥ 22) suffit : aucune
+  dépendance. Pas de ping applicatif : un chien de garde rouvre la connexion après 2 h de silence.
+- **FDSN** : `https://www.seismicportal.eu/fdsnws/event/1/query?format=json&lat=&lon=&maxradius=&minmag=&start=&orderby=time&limit=`,
+  `maxradius` **en degrés** (111,195 km), `start` en UTC sans `Z`. **HTTP 204 sans corps** quand rien
+  ne correspond (`nodata=404` pour un 404). Mêmes Features que le flux. Lu seulement au démarrage,
+  après une coupure du flux et à un changement de zone, 5 min d'écart au moins.
+- Propriétés : `unid` (identifiant stable, `YYYYMMDD_NNNNNNN`), `source_id` (identifiant de la page
+  `emsc-csem.org/Earthquake_information/earthquake.php?id=`, avec les témoignages), `time` (ISO, `Z`),
+  `lat`, `lon`, `depth` (km, positif vers le bas), `mag`, `magtype` (`m`, `ml`, `mb`, `md`, `mw`),
+  `flynn_region` (MAJUSCULES, mises en casse de titre), `auth`, `evtype` (vus : `ke`, `se`, `ue` ;
+  `qb` et explosions écartés).
+- Déclencheurs : « nouveau » seulement pour un séisme de moins d'une heure (un séisme signalé tard
+  n'est pas une nouvelle) ; « révisé » pour un écart de magnitude ≥ 0,5 par rapport à la dernière
+  magnitude annoncée, sur un séisme de moins de 24 h. Une zone nouvelle (centre, rayon, magnitude)
+  repart de zéro sans rien déclencher ; `/data/emsc.json` ne garde qu'un **hash** de la zone, jamais
+  les coordonnées ni les distances (avec les positions des séismes, trois distances situent la maison) :
+  elles sont recalculées au chargement.
+- `sismic-sensor/decimal` existe dans le front (« Valeur sismique décimale ») : utilisé pour les
+  magnitudes. Deux capteurs `distance-sensor` (distance, profondeur) et deux `text/text` (heure,
+  région) : noms distincts, donc affichés.
+- Licence des données CC BY 4.0, crédit « EMSC-CSEM, https://www.emsc-csem.org » (pied du widget) ;
+  conditions : https://www.seismicportal.eu/terms.html. Aucun quota publié.
+- **Course flux / rattrapage** : un message du flux arrivé pendant une requête FDSN est plus récent que
+  sa réponse. Chaque entrée garde `feedAt` ; le rattrapage n'écrase ni ne supprime une entrée touchée
+  par le flux depuis son début (sinon : retrait puis nouveau « nouveau séisme » au `update` suivant).
+- La magnitude n'est **pas arrondie** pour la comparer au seuil (FDSN filtre `minmag` sur la valeur
+  brute) : arrondie seulement à l'affichage et dans les états.

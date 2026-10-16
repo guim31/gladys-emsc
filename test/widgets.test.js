@@ -1,77 +1,115 @@
+// -----------------------------------------------------------------------------
+// The `earthquakes` widget and the two actions: contents within the core
+// budget (validateWidgetContent: an empty array means rendered as sent), the
+// order of the earthquakes, the texts of every language, and the sentence of
+// the scene action and of the configuration action.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { LANGUAGES } from '../src/config.js';
+import { MAX_ITEMS, magnitudeColor } from '../src/widgets.js';
+import { GREECE_NEAR, createApi, createWorld, live } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+async function world(t, config = {}, options = {}) {
+  const w = await createWorld({ config, ...options });
+  t.after(() => w.app.stop());
+  return w;
+}
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
+const content = async (w, language) =>
+  (await w.fake.widgetGet('earthquakes', { settings: {}, language })).data.content;
 
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
-
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
+test('the widget lists the earthquakes of 7 days, newest first, within the budget', async (t) => {
+  const w = await world(t);
+  for (const language of LANGUAGES) {
+    const widget = await content(w, language);
+    assert.deepEqual(validateWidgetContent(widget), [], language);
+    const list = widget.components.find((c) => c.type === 'card-list');
+    assert.equal(list.items.length, 6);
+    assert.equal(list.items[0].title, 'Aegean Sea');
+    assert.equal(list.items[0].badge.color, 'info');
+    assert.match(list.items[0].links[0].url, /^https:\/\/www\.emsc-csem\.org\//);
   }
-});
-
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
+  const fr = await content(w, 'fr');
+  assert.equal(fr.components[0].text, '1 séisme en 24 h');
+  const [first] = fr.components.find((c) => c.type === 'card-list').items;
+  assert.equal(first.subtitle, '167 km · 16/10 06:31');
+  assert.equal(first.badge.text, 'M2,7');
+  assert.equal(
+    first.description,
+    'Magnitude : M2,7 (ml)\nProfondeur : 15 km\nHeure : 16/10/2026 06:31:12\nSignalé par : EMSC',
   );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
+  assert.equal(fr.components.at(-2).text, 'Source : EMSC-CSEM · 16/10 16:00');
+  assert.deepEqual(fr.components.at(-1).link, { url: 'https://www.emsc-csem.org' });
 });
 
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
+test('the widget: at most 8 rows, the zone named when there are two', async (t) => {
+  const w = await world(t, { min_magnitude: '2', far_radius: '1000', far_min_magnitude: '4' });
+  for (let i = 0; i < 4; i += 1) {
+    const feature = w.api.add(GREECE_NEAR, { id: `w${i}`, time: w.clock.now() - i * 60000 });
+    await live(w, 'create', feature);
   }
+  const widget = await content(w, 'en');
+  assert.deepEqual(validateWidgetContent(widget), []);
+  const list = widget.components.find((c) => c.type === 'card-list');
+  assert.equal(list.items.length, MAX_ITEMS);
+  assert.equal(widget.components[0].text, '5 earthquakes in 24 h');
+  assert.match(list.items[0].description, /\nNear zone\n/);
 });
 
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
+test('the widget before any answer, and with an empty zone', async (t) => {
+  const api = createApi();
+  api.down = 503;
+  const w = await world(t, {}, { api });
+  const waiting = await content(w, 'de');
+  assert.deepEqual(validateWidgetContent(waiting), []);
+  assert.equal(waiting.components[0].text, 'Warte auf das EMSC…');
+  const paris = await world(t, { latitude: '48.85', longitude: '2.35', radius: '25' });
+  const empty = await content(paris, 'es');
+  assert.equal(empty.components[0].text, 'Ningún terremoto en 24 h');
+  assert.ok(!empty.components.some((c) => c.type === 'card-list'));
+});
+
+test('badge colours: info, then warning from M4, danger from M5', () => {
+  assert.equal(magnitudeColor(3.9), 'info');
+  assert.equal(magnitudeColor(4), 'warning');
+  assert.equal(magnitudeColor(5.2), 'danger');
+});
+
+test('scene action: the earthquakes of 24 hours as one sentence, with count and maximum', async (t) => {
+  const w = await world(t);
+  const { data } = await w.fake.sceneAction('read_earthquakes', {});
+  assert.deepEqual(data.outputs, {
+    text: '1 séisme en 24 heures : M2,7 Aegean Sea, à 167 km, 16/10 06:31.',
+    count: 1,
+    max_magnitude: 2.7,
+  });
+  w.clock.advance(2 * 24 * 3600 * 1000);
+  const later = await w.fake.sceneAction('read_earthquakes', {});
+  assert.equal(
+    later.data.outputs.text,
+    'Aucun séisme dans votre zone en 24 heures. Dernier : M2,7 Aegean Sea, à 167 km, 16/10 06:31.',
   );
+  assert.equal(later.data.outputs.max_magnitude, 0);
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('scene action without any answer of EMSC: an error in the configured language', async (t) => {
+  const api = createApi();
+  api.down = 'network';
+  const w = await world(t, { language: 'en' }, { api });
+  const result = await w.fake.sceneAction('read_earthquakes', {});
+  assert.match(JSON.stringify(result), /The EMSC event service does not answer/);
+});
+
+test('configuration action: the same in every language, short enough for a toast', async (t) => {
+  const w = await world(t, { min_magnitude: '2' });
+  const { data } = await w.fake.action('check_now');
+  const message = data.message ?? data;
+  assert.deepEqual(Object.keys(message).sort(), [...LANGUAGES].sort());
+  assert.match(message.de, /^\d+ Erdbeben in 24 Stunden: .* Geprüft um 16:00\.$/);
+  for (const text of Object.values(message)) {
+    assert.ok(text.length <= 200, text);
+  }
 });
