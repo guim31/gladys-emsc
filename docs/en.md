@@ -1,61 +1,160 @@
-# Demo Devices Template
+# EMSC Earthquakes
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+The earthquakes near your home in Gladys, live, as reported by the
+[EMSC-CSEM](https://www.emsc-csem.org) (European-Mediterranean Seismological Centre): magnitude,
+distance, depth, time and region of the latest one, and how many there were in the last 24 hours. Made
+for the earthquakes you may **feel** at home: the Pyrenees, the Alps, Provence, Italy, Greece, the
+French West Indies… No account, no API key.
+
+The integration listens to the EMSC real-time feed: an earthquake reaches Gladys a few seconds after
+EMSC publishes it, usually a few minutes after it happened. It is not an early warning system: by the
+time it is reported, the shaking is over. Not affiliated with EMSC.
+
+For the major disasters of the whole world (rated green, orange or red), see the GDACS integration.
 
 ## What you get
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+- A **Nearby earthquakes** device: magnitude, distance, depth, time and region of the latest earthquake
+  of your zone, number of earthquakes in the last 24 hours and strongest magnitude in the last 24 hours,
+  with their history.
+- A **dashboard widget** listing the latest earthquakes of your zone (7 days), newest first, each with its
+  EMSC page (where you can tell EMSC you felt it).
+- Two **scene triggers**: a new earthquake in your zone, and the magnitude of an earthquake revised.
+- A **scene action** that reads the earthquakes of the last 24 hours as one sentence, to send by message
+  or have it read aloud.
+
+## Requirements
+
+- Gladys Assistant 5.1 or later.
+- Internet access from the Gladys host (the integration reads `www.seismicportal.eu`, the EMSC data
+  portal, over HTTPS and a WebSocket).
+- A location for your house in Gladys (Settings → Houses), or coordinates typed in the configuration.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+### Settings
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+Integrations → EMSC Earthquakes → Configuration:
 
-## Actions
+| Setting                     | Default | Meaning                                                                           |
+| --------------------------- | ------- | --------------------------------------------------------------------------------- |
+| Centre latitude / longitude | empty   | Empty: the location of your first located house. Decimal degrees, comma or point. |
+| Radius of the near zone     | 200 km  | Distance from the centre to the epicentre, 25 to 1,000 km.                        |
+| Minimum magnitude, near     | M2.5    | Smaller earthquakes are ignored. From M1 to M5.                                   |
+| Radius of the far zone      | Off     | Optional: a wider zone, 500 to 3,000 km, for strong earthquakes only.             |
+| Minimum magnitude, far      | M5.5    | The minimum of the far zone, from M4 to M7.                                       |
+| Language of the texts       | French  | Names of the features (at their creation) and texts sent to the scenes.           |
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+Save, then create the device in the **Discover** tab.
 
-## Scenes
+### The followed zone
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+An earthquake is in your zone when it is within the radius of the near zone **and** of its minimum
+magnitude at least, or, when the far zone is on, within the radius of the far zone **and** of its own
+minimum magnitude at least. The far zone only counts when both its radius and its magnitude are above
+those of the near zone: otherwise the Configuration screen says it is ignored.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+Rough guide: a magnitude 2.5 is felt near the epicentre only, a magnitude 3 up to a few tens of
+kilometres, a magnitude 4 up to a hundred, a magnitude 5 up to a few hundred. In an active area (Greece,
+Italy, Turkey), EMSC lists several earthquakes of magnitude 2 a day: keep a minimum of 2.5 or 3 there.
 
-## Dashboard
+A typical setting for metropolitan France: 200 km and M2.5 near, 1,000 km and M5 far (a strong
+earthquake in Italy, Spain or Germany).
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+Changing the zone (centre, radius, magnitude) starts it from scratch: the earthquakes already in it are
+loaded without firing any scene.
+
+## Device
+
+| Feature                     | Type     | Value                                                                |
+| --------------------------- | -------- | -------------------------------------------------------------------- |
+| Latest earthquake magnitude | Sismic   | Magnitude of the latest earthquake of the zone, as EMSC rates it.    |
+| Latest earthquake distance  | Distance | Distance from the centre to its epicentre, in km.                    |
+| Latest earthquake depth     | Distance | Depth of its focus, in km.                                           |
+| Latest earthquake time      | Text     | Its date and time, in the time zone of Gladys.                       |
+| Latest earthquake region    | Text     | Its region, as EMSC names it (in English, e.g. “Western Pyrenees”).  |
+| Earthquakes in 24 h         | Counter  | Number of earthquakes of the zone in the last 24 hours.              |
+| Strongest magnitude in 24 h | Sismic   | The strongest magnitude of the last 24 hours, 0 when there was none. |
+
+The latest earthquake stays shown however old it is. The 24-hour values follow the clock: they go down
+when an earthquake gets older than 24 hours.
+
+## Dashboard widget
+
+**Nearby earthquakes**: a heading with the number of earthquakes in 24 hours, then the latest earthquakes
+of the zone over 7 days (8 at most), newest first: region, distance and time, and the magnitude as a
+badge (blue, orange from magnitude 4, red from 5). Tap a row for the details (magnitude type, depth,
+reporting agency, zone) and the link to its EMSC page. The footer gives the source and the time of the
+last update.
+
+## Scene triggers
+
+**EMSC: new earthquake in my zone**: an earthquake of your zone less than an hour old, as soon as EMSC
+publishes it. An earthquake reported later than that (rare), or already there when the zone was set,
+fires nothing. Filter: **Zone** (near, far).
+
+**EMSC: magnitude revised**: EMSC revises by 0.5 or more the magnitude of an earthquake of your zone from
+the last 24 hours (the first magnitude is often an automatic estimate). Same filter. Extra variable:
+previous magnitude.
+
+Variables of both: zone (`near` or `far`) and zone in words, magnitude, magnitude type (`ml`, `mb`,
+`mw`…), distance (km), depth (km), region, date and time, summary (e.g. “M3.2 Western Pyrenees, 45 km
+away, 16/10 15:17”), EMSC page. A condition on a variable (magnitude above 4, distance below 50 km) can
+follow the trigger in the scene.
+
+## Scene action
+
+**EMSC: read the recent earthquakes** gives:
+
+- **Earthquakes, in one sentence**: e.g. “2 earthquakes in 24 hours: M2.7 Aegean Sea, 167 km away, 16/10
+  06:31; M2.5 Greece, 83 km away, 16/10 05:58.”, or the latest known one when there was none;
+- **Earthquakes in 24 hours** and **Strongest magnitude in 24 hours**, as numbers.
+
+The configuration action **Show the latest earthquakes** shows the same sentence (three earthquakes at
+most).
+
+## Scene examples
+
+- **Felt it?** Trigger “new earthquake in my zone”, zone near, then a condition “magnitude ≥ 3”: send
+  “Earthquake {summary}. Tell EMSC if you felt it: {url}” by message.
+- **Strong earthquake far away**: trigger “new earthquake”, zone far: notify the family, read the summary
+  aloud.
+- **Morning summary**: every day at 8:00, the scene action “read the recent earthquakes”, then send its
+  sentence by message if the number of earthquakes is above 0.
+
+## Data sources, terms and quotas
+
+- Real-time feed: `wss://www.seismicportal.eu/standing_order/websocket`, one message per earthquake
+  created or revised in the world. The integration keeps one connection open and reopens it when it is
+  lost (5 seconds, then up to 5 minutes between attempts).
+- Catch-up: the FDSN event service `https://www.seismicportal.eu/fdsnws/event/1/query`, read only at the
+  start, after the feed was lost and when the zone changes (one request per zone, at most every
+  5 minutes, the last 7 days). The feed does the work: the service is never polled.
+- No account, no published quota. The data is distributed by EMSC-CSEM under the CC BY 4.0 licence:
+  credit “EMSC-CSEM, https://www.emsc-csem.org” (shown in the widget). Terms:
+  https://www.seismicportal.eu/terms.html
+- Only the zone is sent to EMSC (centre and radius, in the catch-up request); the integration stores the
+  earthquakes of the last 7 days under `/data`, never the coordinates of your house.
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **“No centre”** in the Configuration screen: give your house a location (Settings → Houses), or type
+  coordinates.
+- **“The EMSC real-time feed is lost”**: the Gladys host cannot reach `www.seismicportal.eu` (internet,
+  DNS, proxy, firewall blocking WebSockets). The integration tries again on its own; the earthquakes of
+  the outage are caught up when it is back.
+- **No value on the device**: the first catch-up has not succeeded yet (see the logs), or the device was
+  created before the first save of the configuration: save once.
+- **Too many earthquakes**: raise the minimum magnitude, or shrink the radius.
+- More details: `LOG_LEVEL=debug` shows each earthquake taken in or left out, never your coordinates.
+
+## Limits
+
+- Not an early warning system: an earthquake is known minutes after it happened. In an emergency, follow
+  the instructions of your local authorities.
+- The magnitude and the position are those EMSC publishes; the first ones are often automatic and revised
+  in the following minutes or hours. National agencies (e.g. RéNaSS in France) may give slightly
+  different values.
+- The distance is measured to the epicentre, not to the area where the earthquake was felt.
+- One zone per Gladys (the first located house, or the coordinates of the configuration).
+- Developed and tested with real EMSC data; not affiliated with EMSC. Feedback welcome.

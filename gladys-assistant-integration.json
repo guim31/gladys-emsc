@@ -1,177 +1,918 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "EMSC Earthquakes",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Live earthquakes near your home from EMSC-CSEM: magnitude, distance, triggers and a widget.",
+    "fr": "Les séismes proches de chez vous en direct, par l'EMSC-CSEM : magnitude, distance, scènes, widget.",
+    "de": "Erdbeben in deiner Nähe live vom EMSC-CSEM: Magnitude, Entfernung, Szenen und ein Widget.",
+    "es": "Terremotos cercanos a su casa en directo, del EMSC-CSEM: magnitud, distancia, escenas y widget."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-emsc:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-emsc/main/cover.png",
+  "categories": ["environment", "security"],
+  "transports": ["cloud"],
+  "location": true,
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your zone",
+        "fr": "Votre zone",
+        "de": "Dein Gebiet",
+        "es": "Su zona"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "The earthquakes EMSC-CSEM reports around your house (or around coordinates), live. Choose a radius and a minimum magnitude, and optionally a wider zone for strong earthquakes only. Save, then create the device in the Discover tab.",
+        "fr": "Les séismes signalés par l'EMSC-CSEM autour de votre maison (ou de coordonnées), en direct. Choisissez un rayon et une magnitude minimale, et si vous le voulez une zone plus large pour les seuls séismes forts. Enregistrez, puis créez l'appareil dans l'onglet Découverte.",
+        "de": "Die vom EMSC-CSEM gemeldeten Erdbeben rund um dein Haus (oder um Koordinaten), live. Wähle einen Radius und eine Mindestmagnitude, und auf Wunsch eine weitere Zone nur für starke Beben. Speichere und lege dann das Gerät im Tab „Entdecken“ an.",
+        "es": "Los terremotos que el EMSC-CSEM señala alrededor de su casa (o de unas coordenadas), en directo. Elija un radio y una magnitud mínima y, si lo desea, una zona más amplia solo para los terremotos fuertes. Guarde y cree el dispositivo en la pestaña Descubrir."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-emsc/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Installationsanleitung",
+            "es": "Guía de instalación"
+          }
+        }
+      ]
+    },
+    {
+      "key": "about",
+      "type": "section",
+      "label": {
+        "en": "Sources and limits",
+        "fr": "Sources et limites",
+        "de": "Quellen und Grenzen",
+        "es": "Fuentes y límites"
+      },
+      "description": {
+        "en": "Data © EMSC-CSEM, read without an account through its real-time feed. Not an early warning system: an earthquake is reported minutes after it happens. Not affiliated with EMSC.",
+        "fr": "Données © EMSC-CSEM, lues sans compte par son flux temps réel. Pas un système d'alerte précoce : un séisme est signalé quelques minutes après. Non affiliée à l'EMSC.",
+        "de": "Daten © EMSC-CSEM, ohne Konto über den Echtzeit-Feed gelesen. Kein Frühwarnsystem: Ein Erdbeben wird erst Minuten danach gemeldet. Nicht mit dem EMSC verbunden.",
+        "es": "Datos © EMSC-CSEM, leídos sin cuenta mediante su flujo en tiempo real. No es un sistema de alerta temprana: un terremoto se señala minutos después. Sin afiliación con el EMSC."
+      },
+      "links": [
+        {
+          "url": "https://www.emsc-csem.org",
+          "label": {
+            "en": "EMSC website",
+            "fr": "Site de l'EMSC",
+            "de": "Website des EMSC",
+            "es": "Sitio web del EMSC"
+          }
+        },
+        {
+          "url": "https://www.seismicportal.eu/realtime.html",
+          "label": {
+            "en": "Real-time feed",
+            "fr": "Flux temps réel",
+            "de": "Echtzeit-Feed",
+            "es": "Flujo en tiempo real"
+          }
+        },
+        {
+          "url": "https://www.seismicportal.eu/terms.html",
+          "label": {
+            "en": "EMSC terms of use (CC BY 4.0)",
+            "fr": "Conditions d'utilisation de l'EMSC (CC BY 4.0)",
+            "de": "Nutzungsbedingungen des EMSC (CC BY 4.0)",
+            "es": "Condiciones de uso del EMSC (CC BY 4.0)"
+          }
         }
       ]
     },
     {
       "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "type": "string",
+      "label": {
+        "en": "Centre latitude",
+        "fr": "Latitude du centre",
+        "de": "Breitengrad des Mittelpunkts",
+        "es": "Latitud del centro"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "description": {
+        "en": "Leave both coordinates empty to use the location of your house in Gladys.",
+        "fr": "Laissez les deux coordonnées vides pour utiliser la position de votre maison dans Gladys.",
+        "de": "Lass beide Koordinaten leer, um den Standort deines Hauses in Gladys zu verwenden.",
+        "es": "Deje ambas coordenadas vacías para usar la ubicación de su casa en Gladys."
+      },
+      "placeholder": {
+        "en": "e.g. 43.6045",
+        "fr": "ex. 43,6045",
+        "de": "z. B. 43.6045",
+        "es": "p. ej. 43.6045"
+      },
+      "required": false,
+      "default": ""
     },
     {
       "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "type": "string",
+      "label": {
+        "en": "Centre longitude",
+        "fr": "Longitude du centre",
+        "de": "Längengrad des Mittelpunkts",
+        "es": "Longitud del centro"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "Decimal degrees, east positive.",
+        "fr": "Degrés décimaux, positifs à l'est.",
+        "de": "Dezimalgrad, Osten positiv.",
+        "es": "Grados decimales, positivos al este."
+      },
+      "placeholder": {
+        "en": "e.g. 1.4440",
+        "fr": "ex. 1,4440",
+        "de": "z. B. 1.4440",
+        "es": "p. ej. 1.4440"
+      },
+      "required": false,
+      "default": ""
     },
     {
-      "key": "unit",
+      "key": "radius",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Radius of the near zone",
+        "fr": "Rayon de la zone proche",
+        "de": "Radius der nahen Zone",
+        "es": "Radio de la zona cercana"
+      },
+      "description": {
+        "en": "Distance from the centre to the epicentre. A magnitude 3 is felt up to a few tens of kilometres.",
+        "fr": "Distance du centre à l'épicentre. Un séisme de magnitude 3 se ressent jusqu'à quelques dizaines de kilomètres.",
+        "de": "Entfernung vom Mittelpunkt zum Epizentrum. Ein Beben der Magnitude 3 ist bis in einige Dutzend Kilometer spürbar.",
+        "es": "Distancia del centro al epicentro. Un terremoto de magnitud 3 se siente hasta unas decenas de kilómetros."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "200",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "25",
+          "label": {
+            "en": "25 km",
+            "fr": "25 km",
+            "de": "25 km",
+            "es": "25 km"
+          }
+        },
+        {
+          "value": "50",
+          "label": {
+            "en": "50 km",
+            "fr": "50 km",
+            "de": "50 km",
+            "es": "50 km"
+          }
+        },
+        {
+          "value": "100",
+          "label": {
+            "en": "100 km",
+            "fr": "100 km",
+            "de": "100 km",
+            "es": "100 km"
+          }
+        },
+        {
+          "value": "200",
+          "label": {
+            "en": "200 km",
+            "fr": "200 km",
+            "de": "200 km",
+            "es": "200 km"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "300 km",
+            "fr": "300 km",
+            "de": "300 km",
+            "es": "300 km"
+          }
+        },
+        {
+          "value": "500",
+          "label": {
+            "en": "500 km",
+            "fr": "500 km",
+            "de": "500 km",
+            "es": "500 km"
+          }
+        },
+        {
+          "value": "1000",
+          "label": {
+            "en": "1 000 km",
+            "fr": "1 000 km",
+            "de": "1 000 km",
+            "es": "1 000 km"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "min_magnitude",
+      "type": "select",
+      "label": {
+        "en": "Minimum magnitude, near zone",
+        "fr": "Magnitude minimale, zone proche",
+        "de": "Mindestmagnitude, nahe Zone",
+        "es": "Magnitud mínima, zona cercana"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "Below 2.5 an earthquake is rarely felt; EMSC lists many small ones in active areas.",
+        "fr": "Sous 2,5, un séisme est rarement ressenti ; l'EMSC en liste beaucoup de petits dans les zones actives.",
+        "de": "Unter 2,5 ist ein Beben selten spürbar; das EMSC listet in aktiven Gebieten viele kleine.",
+        "es": "Por debajo de 2,5 un terremoto rara vez se siente; el EMSC enumera muchos pequeños en zonas activas."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
-    }
-  ],
-  "actions": [
-    {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
+      "default": "2.5",
+      "options": [
+        {
+          "value": "1",
+          "label": {
+            "en": "M1",
+            "fr": "M1",
+            "de": "M1",
+            "es": "M1"
+          }
+        },
+        {
+          "value": "1.5",
+          "label": {
+            "en": "M1.5",
+            "fr": "M1,5",
+            "de": "M1,5",
+            "es": "M1,5"
+          }
+        },
+        {
+          "value": "2",
+          "label": {
+            "en": "M2",
+            "fr": "M2",
+            "de": "M2",
+            "es": "M2"
+          }
+        },
+        {
+          "value": "2.5",
+          "label": {
+            "en": "M2.5",
+            "fr": "M2,5",
+            "de": "M2,5",
+            "es": "M2,5"
+          }
+        },
+        {
+          "value": "3",
+          "label": {
+            "en": "M3",
+            "fr": "M3",
+            "de": "M3",
+            "es": "M3"
+          }
+        },
+        {
+          "value": "3.5",
+          "label": {
+            "en": "M3.5",
+            "fr": "M3,5",
+            "de": "M3,5",
+            "es": "M3,5"
+          }
+        },
+        {
+          "value": "4",
+          "label": {
+            "en": "M4",
+            "fr": "M4",
+            "de": "M4",
+            "es": "M4"
+          }
+        },
+        {
+          "value": "4.5",
+          "label": {
+            "en": "M4.5",
+            "fr": "M4,5",
+            "de": "M4,5",
+            "es": "M4,5"
+          }
+        },
+        {
+          "value": "5",
+          "label": {
+            "en": "M5",
+            "fr": "M5",
+            "de": "M5",
+            "es": "M5"
+          }
+        }
+      ]
     },
     {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
+      "key": "far_radius",
+      "type": "select",
+      "label": {
+        "en": "Radius of the far zone",
+        "fr": "Rayon de la zone lointaine",
+        "de": "Radius der fernen Zone",
+        "es": "Radio de la zona lejana"
+      },
+      "description": {
+        "en": "Optional: also follow the strong earthquakes farther away. Must be wider than the near zone.",
+        "fr": "Facultatif : suivre aussi les séismes forts plus lointains. Doit être plus large que la zone proche.",
+        "de": "Optional: auch die starken Beben weiter weg verfolgen. Muss größer als die nahe Zone sein.",
+        "es": "Opcional: seguir también los terremotos fuertes más lejanos. Debe ser más amplia que la zona cercana."
+      },
+      "required": false,
+      "default": "0",
+      "options": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "value": "0",
+          "label": {
+            "en": "Off",
+            "fr": "Désactivée",
+            "de": "Aus",
+            "es": "Desactivada"
+          }
+        },
+        {
+          "value": "500",
+          "label": {
+            "en": "500 km",
+            "fr": "500 km",
+            "de": "500 km",
+            "es": "500 km"
+          }
+        },
+        {
+          "value": "1000",
+          "label": {
+            "en": "1 000 km",
+            "fr": "1 000 km",
+            "de": "1 000 km",
+            "es": "1 000 km"
+          }
+        },
+        {
+          "value": "2000",
+          "label": {
+            "en": "2 000 km",
+            "fr": "2 000 km",
+            "de": "2 000 km",
+            "es": "2 000 km"
+          }
+        },
+        {
+          "value": "3000",
+          "label": {
+            "en": "3 000 km",
+            "fr": "3 000 km",
+            "de": "3 000 km",
+            "es": "3 000 km"
+          }
+        }
+      ]
+    },
+    {
+      "key": "far_min_magnitude",
+      "type": "select",
+      "label": {
+        "en": "Minimum magnitude, far zone",
+        "fr": "Magnitude minimale, zone lointaine",
+        "de": "Mindestmagnitude, ferne Zone",
+        "es": "Magnitud mínima, zona lejana"
+      },
+      "description": {
+        "en": "Must be above the minimum of the near zone.",
+        "fr": "Doit dépasser le minimum de la zone proche.",
+        "de": "Muss über dem Minimum der nahen Zone liegen.",
+        "es": "Debe superar el mínimo de la zona cercana."
+      },
+      "required": false,
+      "default": "5.5",
+      "options": [
+        {
+          "value": "4",
+          "label": {
+            "en": "M4",
+            "fr": "M4",
+            "de": "M4",
+            "es": "M4"
+          }
+        },
+        {
+          "value": "4.5",
+          "label": {
+            "en": "M4.5",
+            "fr": "M4,5",
+            "de": "M4,5",
+            "es": "M4,5"
+          }
+        },
+        {
+          "value": "5",
+          "label": {
+            "en": "M5",
+            "fr": "M5",
+            "de": "M5",
+            "es": "M5"
+          }
+        },
+        {
+          "value": "5.5",
+          "label": {
+            "en": "M5.5",
+            "fr": "M5,5",
+            "de": "M5,5",
+            "es": "M5,5"
+          }
+        },
+        {
+          "value": "6",
+          "label": {
+            "en": "M6",
+            "fr": "M6",
+            "de": "M6",
+            "es": "M6"
+          }
+        },
+        {
+          "value": "6.5",
+          "label": {
+            "en": "M6.5",
+            "fr": "M6,5",
+            "de": "M6,5",
+            "es": "M6,5"
+          }
+        },
+        {
+          "value": "7",
+          "label": {
+            "en": "M7",
+            "fr": "M7",
+            "de": "M7",
+            "es": "M7"
+          }
+        }
+      ]
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the texts",
+        "fr": "Langue des textes",
+        "de": "Sprache der Texte",
+        "es": "Idioma de los textos"
+      },
+      "description": {
+        "en": "Names of the features (at their creation) and texts sent to the scenes.",
+        "fr": "Noms des fonctionnalités (à leur création) et textes envoyés aux scènes.",
+        "de": "Namen der Funktionen (bei ihrer Erstellung) und Texte für die Szenen.",
+        "es": "Nombres de las funciones (al crearlas) y textos enviados a las escenas."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
         }
       ]
     }
   ],
+  "actions": [
+    {
+      "key": "check_now",
+      "label": {
+        "en": "Show the latest earthquakes",
+        "fr": "Afficher les derniers séismes",
+        "de": "Letzte Erdbeben anzeigen",
+        "es": "Mostrar los últimos terremotos"
+      },
+      "timeout_seconds": 60
+    }
+  ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "new_earthquake",
+      "label": {
+        "en": "EMSC: new earthquake in my zone",
+        "fr": "EMSC : nouveau séisme dans ma zone",
+        "de": "EMSC: neues Erdbeben in meinem Gebiet",
+        "es": "EMSC: nuevo terremoto en mi zona"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "An earthquake of the near zone (or of the far zone) less than an hour old, as soon as EMSC reports it.",
+        "fr": "Un séisme de la zone proche (ou lointaine) de moins d'une heure, dès que l'EMSC le signale.",
+        "de": "Ein Erdbeben der nahen (oder fernen) Zone, jünger als eine Stunde, sobald das EMSC es meldet.",
+        "es": "Un terremoto de la zona cercana (o lejana) de menos de una hora, en cuanto el EMSC lo señala."
       },
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
+          "key": "zone",
           "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "label": {
+            "en": "Zone",
+            "fr": "Zone",
+            "de": "Zone",
+            "es": "Zona"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "near",
+              "label": {
+                "en": "Near zone",
+                "fr": "Zone proche",
+                "de": "Nahe Zone",
+                "es": "Zona cercana"
+              }
+            },
+            {
+              "value": "far",
+              "label": {
+                "en": "Far zone",
+                "fr": "Zone lointaine",
+                "de": "Ferne Zone",
+                "es": "Zona lejana"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "zone",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Zone (near, far)",
+            "fr": "Zone (near, far)",
+            "de": "Zone (near, far)",
+            "es": "Zona (near, far)"
+          }
+        },
+        {
+          "key": "magnitude",
+          "type": "number",
+          "label": {
+            "en": "Magnitude",
+            "fr": "Magnitude",
+            "de": "Magnitude",
+            "es": "Magnitud"
+          }
+        },
+        {
+          "key": "magnitude_type",
+          "type": "string",
+          "label": {
+            "en": "Magnitude type (ml, mb, mw…)",
+            "fr": "Type de magnitude (ml, mb, mw…)",
+            "de": "Magnitudentyp (ml, mb, mw…)",
+            "es": "Tipo de magnitud (ml, mb, mw…)"
+          }
+        },
+        {
+          "key": "distance_km",
+          "type": "number",
+          "label": {
+            "en": "Distance (km)",
+            "fr": "Distance (km)",
+            "de": "Entfernung (km)",
+            "es": "Distancia (km)"
+          }
+        },
+        {
+          "key": "depth_km",
+          "type": "number",
+          "label": {
+            "en": "Depth (km)",
+            "fr": "Profondeur (km)",
+            "de": "Tiefe (km)",
+            "es": "Profundidad (km)"
+          }
+        },
+        {
+          "key": "region",
+          "type": "string",
+          "label": {
+            "en": "Region",
+            "fr": "Région",
+            "de": "Region",
+            "es": "Región"
+          }
+        },
+        {
+          "key": "time",
+          "type": "string",
+          "label": {
+            "en": "Date and time",
+            "fr": "Date et heure",
+            "de": "Datum und Uhrzeit",
+            "es": "Fecha y hora"
+          }
+        },
+        {
+          "key": "zone_name",
+          "type": "string",
+          "label": {
+            "en": "Zone, in words",
+            "fr": "Zone, en toutes lettres",
+            "de": "Zone, ausgeschrieben",
+            "es": "Zona, en palabras"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary",
+            "fr": "Résumé",
+            "de": "Zusammenfassung",
+            "es": "Resumen"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "EMSC page",
+            "fr": "Page EMSC",
+            "de": "EMSC-Seite",
+            "es": "Página EMSC"
+          }
+        }
+      ]
+    },
+    {
+      "key": "magnitude_revised",
+      "label": {
+        "en": "EMSC: magnitude revised",
+        "fr": "EMSC : magnitude révisée",
+        "de": "EMSC: Magnitude korrigiert",
+        "es": "EMSC: magnitud revisada"
+      },
+      "description": {
+        "en": "EMSC revises by 0.5 or more the magnitude of an earthquake of the zone from the last 24 hours.",
+        "fr": "L'EMSC révise de 0,5 ou plus la magnitude d'un séisme de la zone des dernières 24 heures.",
+        "de": "Das EMSC korrigiert die Magnitude eines Bebens der Zone aus den letzten 24 Stunden um 0,5 oder mehr.",
+        "es": "El EMSC revisa en 0,5 o más la magnitud de un terremoto de la zona de las últimas 24 horas."
+      },
+      "fields": [
+        {
+          "key": "zone",
+          "type": "multi_select",
+          "label": {
+            "en": "Zone",
+            "fr": "Zone",
+            "de": "Zone",
+            "es": "Zona"
+          },
+          "options": [
+            {
+              "value": "near",
+              "label": {
+                "en": "Near zone",
+                "fr": "Zone proche",
+                "de": "Nahe Zone",
+                "es": "Zona cercana"
+              }
+            },
+            {
+              "value": "far",
+              "label": {
+                "en": "Far zone",
+                "fr": "Zone lointaine",
+                "de": "Ferne Zone",
+                "es": "Zona lejana"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "zone",
+          "type": "string",
+          "label": {
+            "en": "Zone (near, far)",
+            "fr": "Zone (near, far)",
+            "de": "Zone (near, far)",
+            "es": "Zona (near, far)"
+          }
+        },
+        {
+          "key": "magnitude",
+          "type": "number",
+          "label": {
+            "en": "Magnitude",
+            "fr": "Magnitude",
+            "de": "Magnitude",
+            "es": "Magnitud"
+          }
+        },
+        {
+          "key": "magnitude_type",
+          "type": "string",
+          "label": {
+            "en": "Magnitude type (ml, mb, mw…)",
+            "fr": "Type de magnitude (ml, mb, mw…)",
+            "de": "Magnitudentyp (ml, mb, mw…)",
+            "es": "Tipo de magnitud (ml, mb, mw…)"
+          }
+        },
+        {
+          "key": "distance_km",
+          "type": "number",
+          "label": {
+            "en": "Distance (km)",
+            "fr": "Distance (km)",
+            "de": "Entfernung (km)",
+            "es": "Distancia (km)"
+          }
+        },
+        {
+          "key": "depth_km",
+          "type": "number",
+          "label": {
+            "en": "Depth (km)",
+            "fr": "Profondeur (km)",
+            "de": "Tiefe (km)",
+            "es": "Profundidad (km)"
+          }
+        },
+        {
+          "key": "region",
+          "type": "string",
+          "label": {
+            "en": "Region",
+            "fr": "Région",
+            "de": "Region",
+            "es": "Región"
+          }
+        },
+        {
+          "key": "time",
+          "type": "string",
+          "label": {
+            "en": "Date and time",
+            "fr": "Date et heure",
+            "de": "Datum und Uhrzeit",
+            "es": "Fecha y hora"
+          }
+        },
+        {
+          "key": "zone_name",
+          "type": "string",
+          "label": {
+            "en": "Zone, in words",
+            "fr": "Zone, en toutes lettres",
+            "de": "Zone, ausgeschrieben",
+            "es": "Zona, en palabras"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Summary",
+            "fr": "Résumé",
+            "de": "Zusammenfassung",
+            "es": "Resumen"
+          }
+        },
+        {
+          "key": "url",
+          "type": "string",
+          "label": {
+            "en": "EMSC page",
+            "fr": "Page EMSC",
+            "de": "EMSC-Seite",
+            "es": "Página EMSC"
+          }
+        },
+        {
+          "key": "previous_magnitude",
+          "type": "number",
+          "label": {
+            "en": "Previous magnitude",
+            "fr": "Magnitude précédente",
+            "de": "Vorherige Magnitude",
+            "es": "Magnitud anterior"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "read_earthquakes",
+      "label": {
+        "en": "EMSC: read the recent earthquakes",
+        "fr": "EMSC : lire les séismes récents",
+        "de": "EMSC: letzte Erdbeben lesen",
+        "es": "EMSC: leer los terremotos recientes"
       },
-      "timeout_seconds": 15,
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ],
+      "description": {
+        "en": "The earthquakes of your zone in the last 24 hours as one sentence, to send by message or read aloud.",
+        "fr": "Les séismes de votre zone des dernières 24 heures en une phrase, à envoyer par message ou à lire à voix haute.",
+        "de": "Die Erdbeben deines Gebiets der letzten 24 Stunden als ein Satz, zum Senden per Nachricht oder zum Vorlesen.",
+        "es": "Los terremotos de su zona de las últimas 24 horas en una frase, para enviar por mensaje o leer en voz alta."
+      },
+      "timeout_seconds": 60,
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "text",
+          "type": "string",
+          "label": {
+            "en": "Earthquakes, in one sentence",
+            "fr": "Séismes, en une phrase",
+            "de": "Erdbeben, in einem Satz",
+            "es": "Terremotos, en una frase"
+          }
+        },
+        {
+          "key": "count",
+          "type": "number",
+          "label": {
+            "en": "Earthquakes in 24 hours",
+            "fr": "Séismes sur 24 heures",
+            "de": "Erdbeben in 24 Stunden",
+            "es": "Terremotos en 24 horas"
+          }
+        },
+        {
+          "key": "max_magnitude",
+          "type": "number",
+          "label": {
+            "en": "Strongest magnitude in 24 hours",
+            "fr": "Plus forte magnitude sur 24 heures",
+            "de": "Stärkste Magnitude in 24 Stunden",
+            "es": "Magnitud máxima en 24 horas"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "earthquakes",
+      "label": {
+        "en": "Nearby earthquakes",
+        "fr": "Séismes proches",
+        "de": "Erdbeben in der Nähe",
+        "es": "Terremotos cercanos"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "The latest earthquakes of your zone, newest first, with magnitude and distance.",
+        "fr": "Les derniers séismes de votre zone, du plus récent au plus ancien, avec magnitude et distance.",
+        "de": "Die letzten Erdbeben deines Gebiets, neueste zuerst, mit Magnitude und Entfernung.",
+        "es": "Los últimos terremotos de su zona, del más reciente al más antiguo, con magnitud y distancia."
+      },
+      "icon": "activity"
     }
   ]
 }
