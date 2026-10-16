@@ -261,9 +261,15 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
   n'est pas une nouvelle) ; « révisé » pour un écart de magnitude ≥ 0,5 par rapport à la dernière
   magnitude annoncée, sur un séisme de moins de 24 h. Une zone nouvelle (centre, rayon, magnitude)
   repart de zéro sans rien déclencher ; `/data/emsc.json` ne garde qu'un **hash** de la zone, jamais
-  les coordonnées.
+  les coordonnées ni les distances (avec les positions des séismes, trois distances situent la maison) :
+  elles sont recalculées au chargement.
 - `sismic-sensor/decimal` existe dans le front (« Valeur sismique décimale ») : utilisé pour les
   magnitudes. Deux capteurs `distance-sensor` (distance, profondeur) et deux `text/text` (heure,
   région) : noms distincts, donc affichés.
 - Licence des données CC BY 4.0, crédit « EMSC-CSEM, https://www.emsc-csem.org » (pied du widget) ;
   conditions : https://www.seismicportal.eu/terms.html. Aucun quota publié.
+- **Course flux / rattrapage** : un message du flux arrivé pendant une requête FDSN est plus récent que
+  sa réponse. Chaque entrée garde `feedAt` ; le rattrapage n'écrase ni ne supprime une entrée touchée
+  par le flux depuis son début (sinon : retrait puis nouveau « nouveau séisme » au `update` suivant).
+- La magnitude n'est **pas arrondie** pour la comparer au seuil (FDSN filtre `minmag` sur la valeur
+  brute) : arrondie seulement à l'affichage et dans les états.

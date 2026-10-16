@@ -74,7 +74,8 @@ export function parseFeature(feature) {
     latitude,
     longitude,
     depthKm: depth,
-    magnitude: Math.round(magnitude * 10) / 10,
+    // Not rounded: the zone compares it as FDSN does (`minmag`); shown with one decimal.
+    magnitude,
     magnitudeType: String(p.magtype ?? '').trim(),
     region: regionName(p.flynn_region),
     authority: String(p.auth ?? '').trim(),
@@ -185,6 +186,9 @@ export class Stream {
   }
 
   start() {
+    if (!this.stopped) {
+      return;
+    }
     this.stopped = false;
     this.connect();
   }

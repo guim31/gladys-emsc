@@ -29,7 +29,7 @@ export async function readEarthquakes(monitor) {
   return {
     text: sentence(day, last, monitor.config.language),
     count: day.length,
-    max_magnitude: Math.max(0, ...day.map((event) => event.magnitude)),
+    max_magnitude: Math.round(Math.max(0, ...day.map((event) => event.magnitude)) * 10) / 10,
   };
 }
 

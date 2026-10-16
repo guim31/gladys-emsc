@@ -132,8 +132,7 @@ Die Konfigurationsaktion **Letzte Erdbeben anzeigen** zeigt denselben Satz (höc
   oder korrigiertem Erdbeben weltweit. Die Integration hält eine Verbindung offen und öffnet sie neu,
   wenn sie verloren geht (5 Sekunden, dann bis zu 5 Minuten zwischen zwei Versuchen).
 - Nachholen: der FDSN-Ereignisdienst `https://www.seismicportal.eu/fdsnws/event/1/query`, nur beim Start,
-  nach einem Verlust des Feeds und bei einer Änderung der Zone gelesen (eine Anfrage pro Zone, höchstens
-  alle 5 Minuten, die letzten 7 Tage). Der Feed erledigt die Arbeit: Der Dienst wird nie regelmäßig
+  nach einem Verlust des Feeds und bei einer Änderung der Zone gelesen (eine Anfrage pro Zone, die letzten 7 Tage; nach Unterbrechungen höchstens alle 5 Minuten). Der Feed erledigt die Arbeit: Der Dienst wird nie regelmäßig
   abgefragt.
 - Kein Konto, kein veröffentlichtes Kontingent. Die Daten werden vom EMSC-CSEM unter der Lizenz CC BY 4.0
   verbreitet: Nennung „EMSC-CSEM, https://www.emsc-csem.org“ (im Widget angezeigt). Bedingungen:

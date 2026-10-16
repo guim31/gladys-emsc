@@ -159,7 +159,13 @@ export class Monitor {
     this.config = config;
     const saved = await this.store.load();
     if (saved?.version === 1 && Array.isArray(saved.events)) {
-      this.data = { ...emptyData(), ...saved };
+      // A damaged file must not stop the integration: unusable entries are dropped.
+      this.data = {
+        ...emptyData(),
+        ...saved,
+        events: saved.events.filter(isStored),
+        last: isStored(saved.last) ? saved.last : null,
+      };
     }
     await this.publishDiscovered();
     this.warnAboutConfig();
@@ -282,6 +288,10 @@ export class Monitor {
       .digest('hex')
       .slice(0, 16);
     if (key === this.data.zone) {
+      // The distances are not stored (they would locate the home): measured again.
+      for (const entry of [...this.data.events, this.data.last].filter(Boolean)) {
+        entry.distanceKm = round1(this.locate(entry).distance);
+      }
       this.synced ||= this.data.seeded === true;
       return false;
     }
@@ -318,22 +328,27 @@ export class Monitor {
   // --- Feed ----------------------------------------------------------------------
 
   onFeedOpen() {
-    if (this.feedWasOpen) {
-      this.recovered('feed', 'EMSC real-time feed back');
-      // What happened while the feed was lost.
+    const wasDown = this.failing.delete('feed');
+    logger.info(
+      this.feedWasOpen ? 'EMSC real-time feed back' : 'Connected to the EMSC real-time feed',
+    );
+    this.feedWasOpen = true;
+    // What happened while the feed was down (the catch-up of the start covers
+    // the time before a first connection that succeeds at once).
+    if (wasDown) {
       this.requestCatchUp();
-    } else {
-      // The catch-up of the start covers the time before.
-      this.feedWasOpen = true;
-      this.failing.delete('feed');
-      logger.info('Connected to the EMSC real-time feed');
     }
-    this.updateConnectionStatus();
+    this.background(this.updateConnectionStatus());
   }
 
   onFeedClose(reason) {
     this.failed('feed', 'warn', `EMSC real-time feed lost (${reason}): reconnecting`);
-    this.updateConnectionStatus();
+    this.background(this.updateConnectionStatus());
+  }
+
+  /** An async task started from a synchronous callback: never an unhandled rejection. */
+  background(promise) {
+    promise.catch((err) => logger.debug(`Background task failed: ${err.message}`));
   }
 
   onFeedMessage(text) {
@@ -351,12 +366,15 @@ export class Monitor {
     if (!message.event) {
       return;
     }
-    const changes = this.ingest(message.event, { seed: false });
+    // While a new zone is not caught up yet, only a creation is news: an update
+    // may be an earthquake that was already there.
+    const seed = this.seedNext && message.action !== 'create';
+    const changes = this.ingest(message.event, { seed, feedAt: this.now() });
     if (changes === null) {
       return;
     }
     this.afterChange();
-    this.fireAll(changes);
+    this.background(this.fireAll(changes));
   }
 
   // --- Earthquakes -------------------------------------------------------------------
@@ -364,10 +382,15 @@ export class Monitor {
   /**
    * Takes one earthquake (from the feed or the catch-up) into the zone, or out
    * of it. Returns the scene events to fire, or null when nothing changed.
+   * `feedAt`: the time a feed message brought it; `notBefore`: a catch-up
+   * started then, whose older copy must not undo what the feed brought since.
    */
-  ingest(event, { seed }) {
+  ingest(event, { seed, feedAt, notBefore }) {
     const now = this.now();
     const known = this.data.events.find((entry) => entry.id === event.id);
+    if (known && notBefore !== undefined && known.feedAt >= notBefore) {
+      return null;
+    }
     const { zone, distance } = this.locate(event);
     if (!event.earthquake || zone === null || event.time < now - this.timings.retentionMs) {
       if (known) {
@@ -380,6 +403,9 @@ export class Monitor {
     }
     const entry = { ...event, distanceKm: round1(distance), zone };
     delete entry.earthquake;
+    if (feedAt !== undefined) {
+      entry.feedAt = feedAt;
+    }
     const changes = [];
     if (known) {
       Object.assign(known, entry);
@@ -438,9 +464,19 @@ export class Monitor {
 
   /** After the earthquakes changed: save, publish, nudge the widget. */
   afterChange() {
-    this.store.save(this.data);
-    this.publishStates();
+    this.save();
+    this.background(this.publishStates());
     this.refreshIfChanged();
+  }
+
+  /** Saves under /data, without the distances: with the positions, they would locate the home. */
+  save() {
+    const strip = ({ distanceKm: _distance, ...entry }) => entry;
+    this.store.save({
+      ...this.data,
+      events: this.data.events.map(strip),
+      last: this.data.last ? strip(this.data.last) : null,
+    });
   }
 
   refreshIfChanged() {
@@ -483,6 +519,8 @@ export class Monitor {
     }
     this.needsCatchUp = false;
     this.lastCatchUpAt = this.now();
+    // Feed messages arriving during the requests are newer than their answer.
+    const startedAt = this.now();
     const start = this.now() - this.timings.retentionMs;
     const zones = [this.config.near, this.config.far].filter(Boolean);
     const found = new Map();
@@ -507,17 +545,18 @@ export class Monitor {
       await this.updateConnectionStatus();
       return;
     }
-    this.truncated = truncated;
+    // Beyond MAX_KEPT, the oldest are dropped too.
+    this.truncated = truncated || found.size > MAX_KEPT;
     const seed = this.seedNext;
     this.seedNext = false;
     const changes = [];
     for (const event of [...found.values()].sort((a, b) => a.time - b.time)) {
-      changes.push(...(this.ingest(event, { seed }) ?? []));
+      changes.push(...(this.ingest(event, { seed, notBefore: startedAt }) ?? []));
     }
     // Gone from EMSC (deleted, or revised out of the zone while the feed was lost).
     if (!truncated) {
       for (const entry of [...this.data.events]) {
-        if (!found.has(entry.id) && entry.time >= start) {
+        if (!found.has(entry.id) && entry.time >= start && !(entry.feedAt >= startedAt)) {
           this.remove(entry.id);
         }
       }
@@ -528,7 +567,7 @@ export class Monitor {
     this.data.seeded = true;
     this.synced = true;
     this.lastUpdateAt = this.now();
-    this.store.save(this.data);
+    this.save();
     await this.publishStates();
     await this.updateConnectionStatus();
     this.refreshIfChanged();
@@ -554,7 +593,7 @@ export class Monitor {
     const before = this.data.events.length;
     this.prune();
     if (this.data.events.length !== before) {
-      this.store.save(this.data);
+      this.save();
     }
     await this.publishStates();
     this.refreshIfChanged();
@@ -563,7 +602,9 @@ export class Monitor {
   // --- Scene triggers ----------------------------------------------------------------
 
   async fireAll(changes) {
-    for (const [index, change] of changes.entries()) {
+    // Newest first: past the cap, the oldest are the ones left out.
+    const ordered = [...changes].sort((a, b) => b.event.time - a.event.time);
+    for (const [index, change] of ordered.entries()) {
       if (index >= MAX_EVENTS_PER_BATCH) {
         logger.debug(`${changes.length - index} more scene event(s) not sent`);
         break;
@@ -591,7 +632,7 @@ export class Monitor {
     const language = this.config.language;
     const data = {
       zone: event.zone,
-      magnitude: event.magnitude,
+      magnitude: round1(event.magnitude),
       magnitude_type: event.magnitudeType,
       distance_km: Math.round(event.distanceKm),
       depth_km: event.depthKm === null ? null : round1(event.depthKm),
@@ -602,7 +643,7 @@ export class Monitor {
       url: event.url,
     };
     if (previous !== undefined) {
-      data.previous_magnitude = previous;
+      data.previous_magnitude = round1(previous);
     }
     return data;
   }
@@ -626,7 +667,7 @@ export class Monitor {
       { device_feature_external_id: ids.count, state: day.length },
       {
         device_feature_external_id: ids.max,
-        state: Math.max(0, ...day.map((entry) => entry.magnitude)),
+        state: round1(Math.max(0, ...day.map((entry) => entry.magnitude))),
       },
     ];
     const last = this.data.last;
@@ -634,7 +675,7 @@ export class Monitor {
       states.push(
         {
           device_feature_external_id: ids.magnitude,
-          state: clamp(last.magnitude, 0, MAX_MAGNITUDE),
+          state: clamp(round1(last.magnitude), 0, MAX_MAGNITUDE),
         },
         {
           device_feature_external_id: ids.distance,
@@ -752,6 +793,12 @@ export class Monitor {
     }
   }
 }
+
+const isStored = (entry) =>
+  Boolean(entry) &&
+  typeof entry.id === 'string' &&
+  [entry.time, entry.latitude, entry.longitude, entry.magnitude].every(Number.isFinite) &&
+  ZONES.includes(entry.zone);
 
 function emptyData() {
   return { version: 1, zone: null, seeded: false, events: [], last: null };

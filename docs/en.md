@@ -128,8 +128,7 @@ most).
   created or revised in the world. The integration keeps one connection open and reopens it when it is
   lost (5 seconds, then up to 5 minutes between attempts).
 - Catch-up: the FDSN event service `https://www.seismicportal.eu/fdsnws/event/1/query`, read only at the
-  start, after the feed was lost and when the zone changes (one request per zone, at most every
-  5 minutes, the last 7 days). The feed does the work: the service is never polled.
+  start, after the feed was lost and when the zone changes (one request per zone, the last 7 days; after outages, at most every 5 minutes). The feed does the work: the service is never polled.
 - No account, no published quota. The data is distributed by EMSC-CSEM under the CC BY 4.0 licence:
   credit “EMSC-CSEM, https://www.emsc-csem.org” (shown in the widget). Terms:
   https://www.seismicportal.eu/terms.html

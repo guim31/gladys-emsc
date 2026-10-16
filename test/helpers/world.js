@@ -49,6 +49,8 @@ export function createApi() {
     features: structuredClone(recorded.features),
     down: false,
     requests: [],
+    // A promise: the answers wait for it (a request in flight).
+    gate: null,
 
     feature(id) {
       return api.features.find((feature) => feature.properties.unid === id);
@@ -104,6 +106,7 @@ export function createApi() {
     async fetch(input) {
       const url = new URL(input);
       api.requests.push(url);
+      await api.gate;
       if (api.down === 'network') {
         throw new TypeError('fetch failed');
       }

@@ -65,7 +65,8 @@ export const STATUS = {
     invalidCenter: 'The coordinates are not valid: the location of your house is used.',
     farIgnored:
       'Far zone ignored: its radius and its magnitude must both be above those of the near zone.',
-    truncated: 'Too many earthquakes in your zone: only the latest 500 are counted.',
+    truncated:
+      'Many earthquakes in your zone: only the latest ones are kept. Raise the minimum magnitude.',
     summary: ({ text, time }) => `${text} Checked at ${time}.`,
   },
   fr: {
@@ -78,7 +79,8 @@ export const STATUS = {
       'Les coordonnées ne sont pas valides : la position de votre maison est utilisée.',
     farIgnored:
       'Zone lointaine ignorée : son rayon et sa magnitude doivent dépasser ceux de la zone proche.',
-    truncated: 'Trop de séismes dans votre zone : seuls les 500 derniers sont comptés.',
+    truncated:
+      'Beaucoup de séismes dans votre zone : seuls les derniers sont gardés. Relevez la magnitude minimale.',
     summary: ({ text, time }) => `${text} Vérifié à ${time}.`,
   },
   de: {
@@ -90,7 +92,8 @@ export const STATUS = {
     invalidCenter: 'Die Koordinaten sind ungültig: Der Standort deines Hauses wird verwendet.',
     farIgnored:
       'Ferne Zone ignoriert: Radius und Magnitude müssen beide über denen der nahen Zone liegen.',
-    truncated: 'Zu viele Erdbeben in deinem Gebiet: Nur die letzten 500 werden gezählt.',
+    truncated:
+      'Viele Erdbeben in deinem Gebiet: Nur die letzten werden behalten. Erhöhe die Mindestmagnitude.',
     summary: ({ text, time }) => `${text} Geprüft um ${time}.`,
   },
   es: {
@@ -102,7 +105,8 @@ export const STATUS = {
     invalidCenter: 'Las coordenadas no son válidas: se usa la ubicación de su casa.',
     farIgnored:
       'Zona lejana ignorada: su radio y su magnitud deben superar los de la zona cercana.',
-    truncated: 'Demasiados terremotos en su zona: solo se cuentan los 500 últimos.',
+    truncated:
+      'Muchos terremotos en su zona: solo se guardan los últimos. Suba la magnitud mínima.',
     summary: ({ text, time }) => `${text} Comprobado a las ${time}.`,
   },
 };

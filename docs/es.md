@@ -131,8 +131,7 @@ como máximo).
   creado o revisado en el mundo. La integración mantiene una conexión abierta y la vuelve a abrir cuando
   se pierde (5 segundos, luego hasta 5 minutos entre dos intentos).
 - Recuperación: el servicio de eventos FDSN `https://www.seismicportal.eu/fdsnws/event/1/query`, leído
-  solo al arrancar, tras una pérdida del flujo y cuando cambia la zona (una petición por zona, como mucho
-  cada 5 minutos, los últimos 7 días). El flujo hace el trabajo: el servicio nunca se consulta en bucle.
+  solo al arrancar, tras una pérdida del flujo y cuando cambia la zona (una petición por zona, los últimos 7 días; tras cortes, como mucho cada 5 minutos). El flujo hace el trabajo: el servicio nunca se consulta en bucle.
 - Sin cuenta, sin cuota publicada. Los datos los difunde el EMSC-CSEM bajo la licencia CC BY 4.0:
   atribución «EMSC-CSEM, https://www.emsc-csem.org» (mostrada en el widget). Condiciones:
   https://www.seismicportal.eu/terms.html

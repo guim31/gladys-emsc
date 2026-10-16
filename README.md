@@ -51,7 +51,7 @@ The full guide is in [docs/en.md](docs/en.md) ([fr](docs/fr.md), [de](docs/de.md
   your zone. The connection is reopened when lost (5 s, then up to 5 min between attempts), and
   after two hours without any message.
 - At the start, after an outage and when the zone changes, one FDSN request per zone
-  (`/fdsnws/event/1/query`, last 7 days) catches up what the feed could not deliver; never more
+  (`/fdsnws/event/1/query`, last 7 days) catches up what the feed could not deliver; after outages, never more
   often than every 5 minutes. The service is never polled.
 - "New earthquake" fires for an earthquake less than an hour old; what is in the zone when it is
   first set, or after a change of zone, fires nothing. The earthquakes seen are kept under `/data`,

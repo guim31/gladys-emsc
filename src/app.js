@@ -37,14 +37,20 @@ export function registerHandlers(gladys, options = {}) {
     resolveReady = resolve;
   });
   let started = false;
+  // One start or resync at a time: the SDK says `connected` at every authentication.
+  let starting = Promise.resolve();
   const whenReady =
     (fn) =>
     async (...args) => {
       await ready;
+      await starting;
+      if (!started) {
+        throw new Error('The integration did not start, see its logs');
+      }
       return fn(...args);
     };
 
-  gladys.on('connected', async () => {
+  const onConnected = async () => {
     try {
       const config = normalizeConfig(await gladys.getConfig());
       if (started) {
@@ -58,9 +64,15 @@ export function registerHandlers(gladys, options = {}) {
     } catch (err) {
       logger.error('Initialization failed', err);
       await gladys.setConnectionStatus(false, render(STATUS, 'initFailed')).catch(() => {});
+      // The next status of the monitor must be sent, even if it equals its last one.
+      monitor.statusMessage = undefined;
     } finally {
       resolveReady();
     }
+  };
+  gladys.on('connected', () => {
+    starting = starting.then(onConnected);
+    return starting;
   });
 
   gladys.onScanRequest(whenReady(() => monitor.publishDiscovered()));

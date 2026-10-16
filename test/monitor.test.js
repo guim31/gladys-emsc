@@ -296,3 +296,78 @@ test('a reconnection to Gladys publishes everything again', async (t) => {
   assert.ok(w.fake.states.length >= count + 7);
   assert.equal(w.fake.lastState(featureId(device, 'count_24h')), 1);
 });
+
+test('a feed message during a catch-up is not undone by its older answer', async (t) => {
+  const w = await world(t);
+  w.clock.advance(10 * MINUTE);
+  let open;
+  w.api.gate = new Promise((resolve) => {
+    open = resolve;
+  });
+  w.feed.drop();
+  await settle();
+  assert.ok(w.monitor.catching, 'a catch-up waits for FDSN');
+  // Meanwhile the feed brings a new one, that FDSN does not list yet.
+  const feature = w.api.add(GREECE_NEAR, { id: 'race', time: w.clock.now() - MINUTE });
+  w.api.remove('race');
+  w.feed.send('create', feature);
+  await settle();
+  open();
+  await w.monitor.catching;
+  await settle();
+  assert.ok(zoneIds(w).includes('race'), 'kept although FDSN does not list it yet');
+  feature.properties.mag = 2.6;
+  await live(w, 'update', feature);
+  assert.deepEqual(keys(w), [TRIGGERS.NEW]);
+});
+
+test('the feed down from the very start: caught up once it opens', async (t) => {
+  const feed = createFeed();
+  feed.up = false;
+  const w = await world(t, {}, { feed });
+  await settle();
+  w.clock.advance(20 * MINUTE);
+  w.api.add(GREECE_NEAR, { id: 'early', time: w.clock.now() - 2 * MINUTE });
+  feed.up = true;
+  await settle();
+  await settle();
+  await w.monitor.catching;
+  assert.ok(zoneIds(w).includes('early'));
+  assert.deepEqual(keys(w), [TRIGGERS.NEW]);
+  assert.equal(w.fake.connectionStatus.connected, true);
+});
+
+test('a new zone not caught up yet: an update is not news, a creation is', async (t) => {
+  const api = createApi();
+  const w = await world(t, {}, { api });
+  api.down = 503;
+  await w.fake.configUpdated({ radius: '100' });
+  const old = w.api.add(GREECE_NEAR, { id: 'old', time: w.clock.now() - 30 * MINUTE });
+  await live(w, 'update', old);
+  assert.deepEqual(w.fake.sceneEvents, []);
+  const fresh = w.api.add(GREECE_NEAR, { id: 'fresh', time: w.clock.now() });
+  await live(w, 'create', fresh);
+  assert.deepEqual(keys(w), [TRIGGERS.NEW]);
+});
+
+test('the magnitude is compared unrounded, like FDSN does', async (t) => {
+  const w = await world(t);
+  const feature = w.api.add(GREECE_NEAR, { id: 'r', time: w.clock.now(), magnitude: 2.45 });
+  await live(w, 'create', feature);
+  assert.ok(!zoneIds(w).includes('r'));
+});
+
+test('/data holds no distance (it would locate the home), measured again at the start', async (t) => {
+  const first = await createWorld();
+  await first.app.stop();
+  const saved = JSON.parse(readFileSync(join(first.dataDir, 'emsc.json'), 'utf8'));
+  assert.ok(saved.events.length > 0);
+  assert.ok(saved.events.every((entry) => entry.distanceKm === undefined));
+  assert.equal(saved.last.distanceKm, undefined);
+  const api = createApi();
+  api.down = 503;
+  const second = await createWorld({ api, clock: first.clock, dataDir: first.dataDir });
+  t.after(() => second.app.stop());
+  const device = await create(second);
+  assert.equal(second.fake.lastState(featureId(device, 'last_distance')), 167.3);
+});

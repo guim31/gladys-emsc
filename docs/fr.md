@@ -131,8 +131,7 @@ plus).
   révisé dans le monde. L'intégration garde une connexion ouverte et la rouvre quand elle est perdue
   (5 secondes, puis jusqu'à 5 minutes entre deux tentatives).
 - Rattrapage : le service d'événements FDSN `https://www.seismicportal.eu/fdsnws/event/1/query`, lu
-  seulement au démarrage, après une coupure du flux et quand la zone change (une requête par zone, au
-  plus toutes les 5 minutes, les 7 derniers jours). Le flux fait le travail : le service n'est jamais
+  seulement au démarrage, après une coupure du flux et quand la zone change (une requête par zone, les 7 derniers jours ; après des coupures, au plus toutes les 5 minutes). Le flux fait le travail : le service n'est jamais
   interrogé en boucle.
 - Pas de compte, pas de quota publié. Les données sont diffusées par l'EMSC-CSEM sous licence CC BY 4.0 :
   crédit « EMSC-CSEM, https://www.emsc-csem.org » (affiché dans le widget). Conditions :
